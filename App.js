@@ -1,10 +1,19 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function App() {
+  const handlePress = () => {
+    console.log('Start Inventory pressed');
+  };
+
   return (
     <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
+      <TouchableOpacity 
+        style={styles.button}
+        onPress={handlePress}
+      >
+        <Text style={styles.buttonText}>Start Inventory</Text>
+      </TouchableOpacity>
       <StatusBar style="auto" />
     </View>
   );
@@ -16,5 +25,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  button: {
+    backgroundColor: '#EE3124',
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    borderRadius: 50,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    minWidth: 200,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
