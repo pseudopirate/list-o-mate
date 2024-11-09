@@ -1,12 +1,32 @@
-import React, { useState } from 'react';
-import { View, Image, StyleSheet, Dimensions, TouchableOpacity, Text } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Image, StyleSheet, Dimensions, TouchableOpacity, Text, Animated, TouchableWithoutFeedback } from 'react-native';
 import PinchZoomView from 'react-native-pinch-zoom-view';
 
 export default function App() {
   const [markers, setMarkers] = useState([]);
   const [scale, setScale] = useState(1);
+  const [selectedMarker, setSelectedMarker] = useState(null);
+  const drawerAnimation = useRef(new Animated.Value(0)).current;
+
   const maxScale = 6;
   const minScale = 0.5;
+
+  const openDrawer = (marker) => {
+    setSelectedMarker(marker);
+    Animated.timing(drawerAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeDrawer = () => {
+    Animated.timing(drawerAnimation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => setSelectedMarker(null));
+  };
 
   const handlePress = (event) => {
     const { locationX, locationY } = event.nativeEvent;
@@ -82,11 +102,16 @@ export default function App() {
                   }
                 ]}>×</Text>
               </TouchableOpacity>
-              <Image
-                source={require('./assets/image.png')}
-                style={styles.marker}
-                resizeMode="contain"
-              />
+              <TouchableOpacity
+                onPress={() => openDrawer(marker)}
+                style={styles.markerTouchable}
+              >
+                <Image
+                  source={require('./assets/image.png')}
+                  style={styles.marker}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
             </View>
           ))}
         </TouchableOpacity>
@@ -111,6 +136,40 @@ export default function App() {
           File: map.png | Zoom: {scale.toFixed(2)}x
         </Text>
       </View>
+
+      {/* Bottom Drawer */}
+      {selectedMarker && (
+        <TouchableWithoutFeedback onPress={closeDrawer}>
+          <View style={styles.overlay}>
+            <Animated.View 
+              style={[
+                styles.drawer,
+                {
+                  transform: [{
+                    translateY: drawerAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [Dimensions.get('window').height, 0]
+                    })
+                  }]
+                }
+              ]}
+            >
+              <TouchableOpacity 
+                style={styles.drawerCloseButton}
+                onPress={closeDrawer}
+              >
+                <Text style={styles.drawerCloseText}>×</Text>
+              </TouchableOpacity>
+              
+              <View style={styles.drawerContent}>
+                <Text style={styles.drawerTitle}>Marker Details</Text>
+                <Text>Position: {selectedMarker.x.toFixed(2)}, {selectedMarker.y.toFixed(2)}</Text>
+                {/* Add more marker details here */}
+              </View>
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
+      )}
     </View>
   );
 }
@@ -188,5 +247,66 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'monospace',
     textAlign: 'center',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 2000,
+  },
+  drawer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '85%',
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    zIndex: 2001,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  drawerCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 30,
+    height: 30,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2002,
+  },
+  drawerCloseText: {
+    fontSize: 20,
+    color: 'black',
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  drawerContent: {
+    marginTop: 40,
+  },
+  drawerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  markerTouchable: {
+    width: '100%',
+    height: '100%',
   },
 }); 
