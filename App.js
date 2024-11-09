@@ -1,37 +1,58 @@
-import React, { useState, useRef } from 'react';
-import { View, Image, StyleSheet, Dimensions, TouchableOpacity, Text, Animated, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  Image, 
+  StyleSheet, 
+  Animated,
+  Platform,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Dimensions,
+} from 'react-native';
 import PinchZoomView from 'react-native-pinch-zoom-view';
 import * as ImagePicker from 'expo-image-picker';
-import { ImageAnnotatorClient } from '@google-cloud/vision';
-import OpenAI from 'openai';
-import { promises as fs } from 'fs';
-
-const visionClient = new vision.ImageAnnotatorClient({
-  keyFilename: './junc2024.json'
-});
-
-const openaiClient = new OpenAI();
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const fadeAnim = new Animated.Value(1);
   const [markers, setMarkers] = useState([]);
   const [scale, setScale] = useState(1);
   const [selectedMarker, setSelectedMarker] = useState(null);
   const drawerAnimation = useRef(new Animated.Value(0)).current;
 
-  const maxScale = 6;
-  const minScale = 0.5;
+  useEffect(() => {
+    // Start fade out after 1.5 seconds
+    setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowSplash(false);
+      });
+    }, 1500);
+  }, []);
+
+  const handlePress = (event) => {
+    const { locationX, locationY } = event.nativeEvent;
+    setMarkers([...markers, { 
+      x: locationX / scale, 
+      y: locationY / scale,
+      deviceId: Math.floor(Math.random() * 1000)
+    }]);
+  };
 
   const openDrawer = async (marker) => {
     setSelectedMarker(marker);
     
-    // First start the drawer animation
     Animated.timing(drawerAnimation, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
 
-    // If marker doesn't have an image, open camera
     if (!marker.image) {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
@@ -44,7 +65,6 @@ export default function App() {
         });
 
         if (!result.canceled) {
-          // Update markers and selectedMarker with the new image
           const newImage = result.assets[0].uri;
           const updatedMarkers = markers.map((m) => {
             if (m === marker) {
@@ -53,7 +73,6 @@ export default function App() {
             return m;
           });
           setMarkers(updatedMarkers);
-          // Update the selected marker to show image immediately
           setSelectedMarker({ ...marker, image: newImage });
         }
       }
@@ -68,43 +87,37 @@ export default function App() {
     }).start(() => setSelectedMarker(null));
   };
 
-  const handlePress = (event) => {
-    const { locationX, locationY } = event.nativeEvent;
-    
-    // Store the raw coordinates divided by scale
-    setMarkers([...markers, { 
-      x: locationX / scale,
-      y: locationY / scale
-    }]);
-  };
-
-  const handleZoomIn = () => {
-    if (scale < maxScale) {
-      setScale(scale + 0.2);
-    }
-  };
-
-  const handleZoomOut = () => {
-    if (scale > minScale) {
-      setScale(scale - 0.2);
-    }
-  };
+  if (showSplash) {
+    return (
+      <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
+        <Image
+          source={require('./assets/gear.png')}
+          style={styles.splashIcon}
+          resizeMode="contain"
+        />
+        <Text style={styles.splashTitle}>list-o-matic</Text>
+      </Animated.View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <PinchZoomView>
-        <TouchableOpacity 
+      <PinchZoomView
+        maxScale={6}
+        minScale={0.5}
+        onScaleChange={(scale) => setScale(scale)}
+      >
+        <TouchableOpacity
           activeOpacity={1}
           onPress={handlePress}
           style={styles.imageContainer}
         >
           <Image
             source={require('./assets/map.png')}
-            style={[styles.map, { transform: [{ scale: scale }] }]}
+            style={styles.image}
             resizeMode="contain"
           />
           
-          {/* Markers inside the PinchZoomView */}
           {markers.map((marker, index) => (
             <View
               key={index}
@@ -112,115 +125,169 @@ export default function App() {
                 styles.markerContainer,
                 {
                   position: 'absolute',
-                  left: (marker.x * scale) - (10 * scale),
-                  top: (marker.y * scale) - (10 * scale),
-                  width: 20 * scale,
-                  height: 20 * scale,
+                  left: (marker.x * scale) - (11.5 * scale),
+                  top: (marker.y * scale) - (11.5 * scale),
+                  width: 23 * scale,
+                  height: 23 * scale,
                 }
               ]}
             >
-              <TouchableOpacity 
-                style={[
-                  styles.deleteButton,
-                  {
-                    width: Math.max(12, 14 * scale),
-                    height: Math.max(12, 14 * scale),
-                    top: -5 * scale,
-                    right: -5 * scale,
-                    borderRadius: 7 * scale,
-                  }
-                ]}
-                onPress={() => {
-                  setMarkers(markers.filter((_, i) => i !== index));
-                }}
-              >
-                <Text style={[
-                  styles.deleteButtonText,
-                  {
-                    fontSize: Math.max(12, 12 * scale),
-                    lineHeight: Math.max(14, 14 * scale),
-                  }
-                ]}>×</Text>
-              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => openDrawer(marker)}
                 style={styles.markerTouchable}
               >
-                <Image
-                  source={require('./assets/image.png')}
-                  style={styles.marker}
-                  resizeMode="contain"
-                />
+                <View style={styles.markerBorder}>
+                  <Image
+                    source={require('./assets/gear.png')}
+                    style={styles.markerImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.deleteButton,
+                  {
+                    width: Math.max(11, 13 * scale),
+                    height: Math.max(11, 13 * scale),
+                    top: -4.5 * scale,
+                    right: -4.5 * scale,
+                    borderRadius: 6.5 * scale,
+                  }
+                ]}
+                onPress={() => {
+                  Alert.alert(
+                    "Delete Marker",
+                    "Are you sure you want to delete this marker?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        onPress: () => setMarkers(markers.filter((_, i) => i !== index)),
+                        style: "destructive"
+                      }
+                    ],
+                    { cancelable: true }
+                  );
+                }}
+              >
+                <Text style={[styles.deleteButtonText, { fontSize: 11 }]}>×</Text>
               </TouchableOpacity>
             </View>
           ))}
         </TouchableOpacity>
       </PinchZoomView>
 
-      <View style={styles.zoomControls}>
-        <TouchableOpacity style={styles.zoomButton} onPress={handleZoomIn}>
-          <Text style={styles.buttonText}>+</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.zoomButton} onPress={handleZoomOut}>
-          <Text style={styles.buttonText}>-</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.zoomButton} onPress={() => setMarkers([])}>
-          <Text style={styles.buttonText}>×</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statusStripe}>
-        <Text style={styles.statusText}>
-          File: map.png | Zoom: {scale.toFixed(2)}x
-        </Text>
-      </View>
-
-      {/* Bottom Drawer */}
       {selectedMarker && (
-        <TouchableWithoutFeedback onPress={closeDrawer}>
-          <View style={styles.overlay}>
-            <Animated.View 
-              style={[
-                styles.drawer,
-                {
-                  transform: [{
-                    translateY: drawerAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [Dimensions.get('window').height, 0]
-                    })
-                  }]
-                }
-              ]}
+        <View style={styles.overlay} pointerEvents="box-none">
+          <Animated.View 
+            style={[
+              styles.drawer,
+              {
+                transform: [{
+                  translateY: drawerAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [Dimensions.get('window').height, 0]
+                  })
+                }]
+              }
+            ]}
+          >
+            <TouchableOpacity 
+              style={styles.drawerCloseButton}
+              onPress={closeDrawer}
             >
-              <TouchableOpacity 
-                style={styles.drawerCloseButton}
-                onPress={closeDrawer}
-              >
-                <Text style={styles.drawerCloseText}>×</Text>
-              </TouchableOpacity>
+              <Text style={styles.drawerCloseText}>×</Text>
+            </TouchableOpacity>
+            
+            <ScrollView 
+              style={styles.drawerScroll}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <Text style={styles.drawerTitle}>
+                Inventory device #{selectedMarker.deviceId}
+              </Text>
               
-              <View style={styles.drawerContent}>
-                <Text style={styles.drawerTitle}>Marker Details</Text>
-                
-                {selectedMarker.image ? (
+              {selectedMarker.image ? (
+                <>
                   <Image
                     source={{ uri: selectedMarker.image }}
                     style={styles.drawerImage}
                     resizeMode="cover"
                   />
-                ) : (
-                  <View style={styles.imagePlaceholder}>
-                    <Text>Taking picture...</Text>
+
+                  <View style={styles.tableContainer}>
+                    <Text style={styles.sectionHeader}>Address</Text>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Street</Text>
+                      <Text style={styles.tableCellValue}>Mukulakuja 3</Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>City</Text>
+                      <Text style={styles.tableCellValue}>Tuusula</Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Postal Code</Text>
+                      <Text style={styles.tableCellValue}>FIN-04300</Text>
+                    </View>
+
+                    <Text style={styles.sectionHeader}>Contact</Text>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Telephone</Text>
+                      <Text style={styles.tableCellValue}>+358-9-274 4000</Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Fax</Text>
+                      <Text style={styles.tableCellValue}>+358-9-274 40044</Text>
+                    </View>
+
+                    <Text style={styles.sectionHeader}>Project</Text>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Project ID</Text>
+                      <Text style={styles.tableCellValue}>18817</Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Date</Text>
+                      <Text style={styles.tableCellValue}>19.06.2006</Text>
+                    </View>
+
+                    <Text style={styles.sectionHeader}>Specifications</Text>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Type</Text>
+                      <Text style={styles.tableCellValue}>RECAIR 6E</Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Unit Code</Text>
+                      <Text style={styles.tableCellValue}>TK1</Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Air Flow</Text>
+                      <Text style={styles.tableCellValue}>7.2 m³/s</Text>
+                    </View>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableCell}>Total Pressure</Text>
+                      <Text style={styles.tableCellValue}>972 Pa</Text>
+                    </View>
                   </View>
-                )}
-                
-                <Text>Position: {selectedMarker.x.toFixed(2)}, {selectedMarker.y.toFixed(2)}</Text>
-              </View>
-            </Animated.View>
-          </View>
-        </TouchableWithoutFeedback>
+
+                  <TouchableOpacity 
+                    style={styles.exportButton}
+                    onPress={() => console.log('Export pressed')}
+                  >
+                    <Text style={styles.exportButtonText}>Export</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Text style={styles.placeholderText}>Taking picture...</Text>
+                </View>
+              )}
+            </ScrollView>
+          </Animated.View>
+        </View>
       )}
     </View>
   );
@@ -229,24 +296,57 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: '#fff',
+  },
+  splashContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splashIcon: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+  },
+  splashTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#000',
+    fontFamily: 'System',
   },
   imageContainer: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
+    width: '100%',
+    height: '100%',
   },
-  map: {
+  image: {
     width: '100%',
     height: '100%',
   },
   markerContainer: {
-    position: 'absolute',
     zIndex: 1000,
     pointerEvents: 'box-none',
   },
-  marker: {
+  markerTouchable: {
     width: '100%',
     height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  markerBorder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 11.5,
+    borderWidth: 2,
+    borderColor: '#000',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  markerImage: {
+    width: '90%',
+    height: '90%',
   },
   deleteButton: {
     position: 'absolute',
@@ -258,47 +358,10 @@ const styles = StyleSheet.create({
     zIndex: 1001,
   },
   deleteButtonText: {
-    textAlign: 'center',
     color: 'black',
     includeFontPadding: false,
     marginTop: -1,
-  },
-  zoomControls: {
-    position: 'absolute',
-    right: 20,
-    bottom: 55,
-    zIndex: 1000,
-  },
-  zoomButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-  buttonText: {
-    fontSize: 24,
-    color: 'black',
-  },
-  statusStripe: {
-    position: 'absolute',
-    bottom: 15,
-    left: 15,
-    right: 15,
-    height: 30,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    borderRadius: 15,
-    zIndex: 1000,
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 14,
-    fontFamily: 'monospace',
-    textAlign: 'center',
+    fontWeight: '300',
   },
   overlay: {
     position: 'absolute',
@@ -316,65 +379,100 @@ const styles = StyleSheet.create({
     right: 0,
     height: '85%',
     backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     zIndex: 2001,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+  },
+  drawerScroll: {
+    padding: 24,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   drawerCloseButton: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    top: 24,
+    right: 24,
     width: 30,
     height: 30,
-    backgroundColor: 'white',
+    backgroundColor: 'transparent',
     borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2002,
   },
   drawerCloseText: {
-    fontSize: 20,
+    fontSize: 24,
     color: 'black',
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-  drawerContent: {
-    marginTop: 40,
-    alignItems: 'center',
+    fontWeight: '300',
   },
   drawerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  markerTouchable: {
-    width: '100%',
-    height: '100%',
+    fontSize: 28,
+    fontWeight: '600',
+    marginBottom: 24,
+    color: '#000',
   },
   drawerImage: {
     width: '100%',
-    height: Dimensions.get('window').height * 0.85 * 0.5, // 50% of drawer height
-    marginVertical: 20,
-    borderRadius: 10,
+    height: 300,
+    borderRadius: 12,
+    marginBottom: 24,
   },
   imagePlaceholder: {
     width: '100%',
-    height: Dimensions.get('window').height * 0.85 * 0.5,
-    backgroundColor: '#f0f0f0',
+    height: 300,
+    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 20,
-    borderRadius: 10,
+    borderRadius: 12,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  tableContainer: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000',
+    backgroundColor: '#f8f8f8',
+    padding: 16,
+    paddingBottom: 8,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#f8f8f8',
+  },
+  tableCell: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+    opacity: 0.6,
+  },
+  tableCellValue: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+    textAlign: 'right',
+  },
+  exportButton: {
+    backgroundColor: '#000',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  exportButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 
