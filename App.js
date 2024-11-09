@@ -1,6 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { View, Image, StyleSheet, Dimensions, TouchableOpacity, Text, Animated, TouchableWithoutFeedback } from 'react-native';
 import PinchZoomView from 'react-native-pinch-zoom-view';
+import * as ImagePicker from 'expo-image-picker';
+import { ImageAnnotatorClient } from '@google-cloud/vision';
+import OpenAI from 'openai';
+import { promises as fs } from 'fs';
+
+const visionClient = new vision.ImageAnnotatorClient({
+  keyFilename: './junc2024.json'
+});
+
+const openaiClient = new OpenAI();
 
 export default function App() {
   const [markers, setMarkers] = useState([]);
@@ -11,13 +21,43 @@ export default function App() {
   const maxScale = 6;
   const minScale = 0.5;
 
-  const openDrawer = (marker) => {
+  const openDrawer = async (marker) => {
     setSelectedMarker(marker);
+    
+    // First start the drawer animation
     Animated.timing(drawerAnimation, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
+
+    // If marker doesn't have an image, open camera
+    if (!marker.image) {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (status === 'granted') {
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 1,
+        });
+
+        if (!result.canceled) {
+          // Update markers and selectedMarker with the new image
+          const newImage = result.assets[0].uri;
+          const updatedMarkers = markers.map((m) => {
+            if (m === marker) {
+              return { ...m, image: newImage };
+            }
+            return m;
+          });
+          setMarkers(updatedMarkers);
+          // Update the selected marker to show image immediately
+          setSelectedMarker({ ...marker, image: newImage });
+        }
+      }
+    }
   };
 
   const closeDrawer = () => {
@@ -163,8 +203,20 @@ export default function App() {
               
               <View style={styles.drawerContent}>
                 <Text style={styles.drawerTitle}>Marker Details</Text>
+                
+                {selectedMarker.image ? (
+                  <Image
+                    source={{ uri: selectedMarker.image }}
+                    style={styles.drawerImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Text>Taking picture...</Text>
+                  </View>
+                )}
+                
                 <Text>Position: {selectedMarker.x.toFixed(2)}, {selectedMarker.y.toFixed(2)}</Text>
-                {/* Add more marker details here */}
               </View>
             </Animated.View>
           </View>
@@ -299,6 +351,7 @@ const styles = StyleSheet.create({
   },
   drawerContent: {
     marginTop: 40,
+    alignItems: 'center',
   },
   drawerTitle: {
     fontSize: 24,
@@ -308,5 +361,20 @@ const styles = StyleSheet.create({
   markerTouchable: {
     width: '100%',
     height: '100%',
+  },
+  drawerImage: {
+    width: '100%',
+    height: Dimensions.get('window').height * 0.85 * 0.5, // 50% of drawer height
+    marginVertical: 20,
+    borderRadius: 10,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: Dimensions.get('window').height * 0.85 * 0.5,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 20,
+    borderRadius: 10,
   },
 }); 

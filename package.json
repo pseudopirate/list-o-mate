@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",
+    "@google-cloud/vision": "^4.3.2",
     "@likashefqet/react-native-image-zoom": "^4.2.0",
     "expo": "~51.0.28",
+    "expo-image-picker": "~15.0.7",
     "expo-status-bar": "~1.12.1",
+    "openai": "^4.71.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.74.5",
