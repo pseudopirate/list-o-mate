@@ -39,11 +39,97 @@ const mockServerResponse = {
   }
 };
 
-// Simulate server request
+// Update the data structure expected from server
+const processServerData = (rawData) => {
+  try {
+    // Parse the data string if it's a string
+    const parsedData = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    console.log('Processed data:', parsedData);
+    return parsedData;
+  } catch (error) {
+    console.error('Error processing data:', error);
+    return null;
+  }
+};
+
+// Function to send image to server
 const sendImageToServer = async (imageUri) => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return mockServerResponse;
+  try {
+    const formData = new FormData();
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'image.jpg'
+    });
+
+    console.log('Sending image to server:', imageUri);
+
+    const serverResponse = await fetch('https://4acc-93-106-14-175.ngrok-free.app/process-image', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    if (!serverResponse.ok) {
+      throw new Error('Server response was not ok');
+    }
+
+    const result = await serverResponse.json();
+    console.log('Server response:', result);
+    
+    if (result.success && result.data) {
+      const processedData = processServerData(result.data);
+      if (processedData) {
+        return processedData;
+      }
+      throw new Error('Failed to process data');
+    } else {
+      throw new Error(result.error || 'Unknown error');
+    }
+
+  } catch (error) {
+    console.error('Error sending image to server:', error);
+    throw error;
+  }
+};
+
+const DataTable = ({ data }) => {
+  // Match exact property names from server
+  const propertyLabels = {
+    "device type": "Device Type",
+    "name": "Name",
+    "color": "Color",
+    "brand": "Brand",
+    "last maintenance date": "Last Maintenance",
+    "contact phone": "Phone",
+    "contact website": "Website",
+    "manufacturer": "Manufacturer"
+  };
+
+  const renderValue = (value) => {
+    if (value === null || value === undefined) return "-";
+    if (Array.isArray(value)) return value.join(", ");
+    return value.toString();
+  };
+
+  return (
+    <ScrollView style={styles.drawerScroll}>
+      <View style={styles.tableContainer}>
+        <Text style={styles.sectionHeader}>Device Information</Text>
+        {Object.entries(propertyLabels).map(([key, label]) => (
+          <View key={key} style={styles.tableRow}>
+            <Text style={styles.tableCell}>{label}</Text>
+            <Text style={styles.tableCellValue}>
+              {renderValue(data[key])}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
 };
 
 export default function App() {
@@ -102,28 +188,40 @@ export default function App() {
           // Show loading state
           setSelectedMarker({ ...marker, image: newImage, isLoading: true });
           
-          // Send image to server and get response
-          const serverData = await sendImageToServer(newImage);
-          
-          // Update markers with image and server data
-          const updatedMarkers = markers.map((m) => {
-            if (m === marker) {
-              return { 
-                ...m, 
-                image: newImage,
-                serverData: serverData.RECAIR 
-              };
-            }
-            return m;
-          });
-          
-          setMarkers(updatedMarkers);
-          setSelectedMarker({ 
-            ...marker, 
-            image: newImage,
-            serverData: serverData.RECAIR,
-            isLoading: false 
-          });
+          try {
+            // Send image to server and get response
+            const serverData = await sendImageToServer(newImage);
+            
+            // Update markers with image and server data
+            const updatedMarkers = markers.map((m) => {
+              if (m === marker) {
+                return { 
+                  ...m, 
+                  image: newImage,
+                  serverData: serverData
+                };
+              }
+              return m;
+            });
+            
+            setMarkers(updatedMarkers);
+            setSelectedMarker({ 
+              ...marker, 
+              image: newImage,
+              serverData: serverData,
+              isLoading: false 
+            });
+          } catch (error) {
+            console.error('Failed to process image:', error);
+            // Show error state or fallback to mock data
+            setSelectedMarker({ 
+              ...marker, 
+              image: newImage,
+              serverData: mockServerResponse.RECAIR,
+              isLoading: false,
+              error: 'Failed to process image'
+            });
+          }
         }
       }
     }
@@ -156,6 +254,7 @@ export default function App() {
         maxScale={6}
         minScale={0.5}
         onScaleChange={(scale) => setScale(scale)}
+        style={styles.container}
       >
         <TouchableOpacity
           activeOpacity={1}
@@ -274,59 +373,7 @@ export default function App() {
                       <Text style={styles.loadingText}>Processing image...</Text>
                     </View>
                   ) : selectedMarker.serverData ? (
-                    <View style={styles.tableContainer}>
-                      <Text style={styles.sectionHeader}>Address</Text>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Street</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.address.street}</Text>
-                      </View>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>City</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.address.city}</Text>
-                      </View>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Postal Code</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.address.postal_code}</Text>
-                      </View>
-
-                      <Text style={styles.sectionHeader}>Contact</Text>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Telephone</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.contact.telephone}</Text>
-                      </View>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Fax</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.contact.fax}</Text>
-                      </View>
-
-                      <Text style={styles.sectionHeader}>Project</Text>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Project ID</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.project.project_id}</Text>
-                      </View>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Date</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.project.date}</Text>
-                      </View>
-
-                      <Text style={styles.sectionHeader}>Specifications</Text>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Type</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.type}</Text>
-                      </View>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Unit Code</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.unit_code}</Text>
-                      </View>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Air Flow</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.air_flow_m3_s} m³/s</Text>
-                      </View>
-                      <View style={styles.tableRow}>
-                        <Text style={styles.tableCell}>Total Pressure</Text>
-                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.total_pressure_Pa} Pa</Text>
-                      </View>
-                    </View>
+                    <DataTable data={selectedMarker.serverData} />
                   ) : null}
 
                   <TouchableOpacity 
@@ -436,10 +483,10 @@ const styles = StyleSheet.create({
     zIndex: 2001,
   },
   drawerScroll: {
-    padding: 24,
+    flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    padding: 16,
   },
   drawerCloseButton: {
     position: 'absolute',
@@ -483,36 +530,58 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   tableContainer: {
-    backgroundColor: '#f8f8f8',
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 24,
+    margin: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionHeader: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#000',
-    backgroundColor: '#f8f8f8',
     padding: 16,
-    paddingBottom: 8,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   tableRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f8f8f8',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    alignItems: 'center',
   },
   tableCell: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
-    opacity: 0.6,
+    color: '#666',
+    fontWeight: '500',
   },
   tableCellValue: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
+    color: '#333',
     textAlign: 'right',
+  },
+  nestedRow: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+  },
+  nestedCell: {
+    fontSize: 14,
+    color: '#666',
+    marginRight: 8,
+  },
+  nestedValue: {
+    fontSize: 14,
+    color: '#333',
   },
   exportButton: {
     backgroundColor: '#000',
