@@ -14,6 +14,38 @@ import {
 import PinchZoomView from 'react-native-pinch-zoom-view';
 import * as ImagePicker from 'expo-image-picker';
 
+// Add this mock function at the top level
+const mockServerResponse = {
+  RECAIR: {
+    address: {
+      street: "Mukulakuja 3",
+      city: "Tuusula",
+      postal_code: "FIN-04300"
+    },
+    contact: {
+      telephone: "+358-9-274 4000",
+      fax: "+358-9-274 40044"
+    },
+    project: {
+      project_id: "18817",
+      date: "19.06.2006"
+    },
+    specifications: {
+      type: "RECAIR 6E",
+      unit_code: "TK1",
+      air_flow_m3_s: "7.2",
+      total_pressure_Pa: "972"
+    }
+  }
+};
+
+// Simulate server request
+const sendImageToServer = async (imageUri) => {
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return mockServerResponse;
+};
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const fadeAnim = new Animated.Value(1);
@@ -66,14 +98,32 @@ export default function App() {
 
         if (!result.canceled) {
           const newImage = result.assets[0].uri;
+          
+          // Show loading state
+          setSelectedMarker({ ...marker, image: newImage, isLoading: true });
+          
+          // Send image to server and get response
+          const serverData = await sendImageToServer(newImage);
+          
+          // Update markers with image and server data
           const updatedMarkers = markers.map((m) => {
             if (m === marker) {
-              return { ...m, image: newImage };
+              return { 
+                ...m, 
+                image: newImage,
+                serverData: serverData.RECAIR 
+              };
             }
             return m;
           });
+          
           setMarkers(updatedMarkers);
-          setSelectedMarker({ ...marker, image: newImage });
+          setSelectedMarker({ 
+            ...marker, 
+            image: newImage,
+            serverData: serverData.RECAIR,
+            isLoading: false 
+          });
         }
       }
     }
@@ -211,7 +261,7 @@ export default function App() {
                 Inventory device #{selectedMarker.deviceId}
               </Text>
               
-              {selectedMarker.image ? (
+              {selectedMarker.image && (
                 <>
                   <Image
                     source={{ uri: selectedMarker.image }}
@@ -219,59 +269,65 @@ export default function App() {
                     resizeMode="cover"
                   />
 
-                  <View style={styles.tableContainer}>
-                    <Text style={styles.sectionHeader}>Address</Text>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Street</Text>
-                      <Text style={styles.tableCellValue}>Mukulakuja 3</Text>
+                  {selectedMarker.isLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <Text style={styles.loadingText}>Processing image...</Text>
                     </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>City</Text>
-                      <Text style={styles.tableCellValue}>Tuusula</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Postal Code</Text>
-                      <Text style={styles.tableCellValue}>FIN-04300</Text>
-                    </View>
+                  ) : selectedMarker.serverData ? (
+                    <View style={styles.tableContainer}>
+                      <Text style={styles.sectionHeader}>Address</Text>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Street</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.address.street}</Text>
+                      </View>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>City</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.address.city}</Text>
+                      </View>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Postal Code</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.address.postal_code}</Text>
+                      </View>
 
-                    <Text style={styles.sectionHeader}>Contact</Text>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Telephone</Text>
-                      <Text style={styles.tableCellValue}>+358-9-274 4000</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Fax</Text>
-                      <Text style={styles.tableCellValue}>+358-9-274 40044</Text>
-                    </View>
+                      <Text style={styles.sectionHeader}>Contact</Text>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Telephone</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.contact.telephone}</Text>
+                      </View>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Fax</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.contact.fax}</Text>
+                      </View>
 
-                    <Text style={styles.sectionHeader}>Project</Text>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Project ID</Text>
-                      <Text style={styles.tableCellValue}>18817</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Date</Text>
-                      <Text style={styles.tableCellValue}>19.06.2006</Text>
-                    </View>
+                      <Text style={styles.sectionHeader}>Project</Text>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Project ID</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.project.project_id}</Text>
+                      </View>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Date</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.project.date}</Text>
+                      </View>
 
-                    <Text style={styles.sectionHeader}>Specifications</Text>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Type</Text>
-                      <Text style={styles.tableCellValue}>RECAIR 6E</Text>
+                      <Text style={styles.sectionHeader}>Specifications</Text>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Type</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.type}</Text>
+                      </View>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Unit Code</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.unit_code}</Text>
+                      </View>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Air Flow</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.air_flow_m3_s} m³/s</Text>
+                      </View>
+                      <View style={styles.tableRow}>
+                        <Text style={styles.tableCell}>Total Pressure</Text>
+                        <Text style={styles.tableCellValue}>{selectedMarker.serverData.specifications.total_pressure_Pa} Pa</Text>
+                      </View>
                     </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Unit Code</Text>
-                      <Text style={styles.tableCellValue}>TK1</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Air Flow</Text>
-                      <Text style={styles.tableCellValue}>7.2 m³/s</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Total Pressure</Text>
-                      <Text style={styles.tableCellValue}>972 Pa</Text>
-                    </View>
-                  </View>
+                  ) : null}
 
                   <TouchableOpacity 
                     style={styles.exportButton}
@@ -280,10 +336,6 @@ export default function App() {
                     <Text style={styles.exportButtonText}>Export</Text>
                   </TouchableOpacity>
                 </>
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Text style={styles.placeholderText}>Taking picture...</Text>
-                </View>
               )}
             </ScrollView>
           </Animated.View>
@@ -474,5 +526,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
   },
 }); 
