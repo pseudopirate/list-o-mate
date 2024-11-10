@@ -4,8 +4,8 @@
   "main": "expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -13,8 +13,10 @@
     "@google-cloud/vision": "^4.3.2",
     "@likashefqet/react-native-image-zoom": "^4.2.0",
     "expo": "~51.0.28",
+    "expo-dev-client": "^4.0.29",
     "expo-image-picker": "~15.0.7",
     "expo-status-bar": "~1.12.1",
+    "expo-updates": "~0.25.27",
     "openai": "^4.71.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",

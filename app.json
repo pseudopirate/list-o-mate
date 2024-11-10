@@ -12,13 +12,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hostmepanda.koneinvapp"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.hostmepanda.koneinvapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,6 +35,16 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6f28ef40-5280-4672-92c6-b746fe3a68f0"
+      }
+    },
+    "owner": "hostmepanda",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/6f28ef40-5280-4672-92c6-b746fe3a68f0"
+    }
   }
 }
